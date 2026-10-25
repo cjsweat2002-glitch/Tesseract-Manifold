@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Chakra Petch', sans-serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #090b10;
+    color: #f1f5f9;
+    overflow: hidden;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono-tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Subtle scrollbar for node inspector panels */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.5);
+}
+
+/* GIF-Style Step-Animated Font & Glyph Shapeshifting Keyframes */
+@keyframes gifFontCycle {
+  0%, 100% {
+    font-family: 'Chakra Petch', sans-serif;
+    font-style: normal;
+  }
+  16% {
+    font-family: 'Cinzel', serif;
+    font-style: normal;
+  }
+  33% {
+    font-family: 'Syne', sans-serif;
+    font-style: normal;
+  }
+  50% {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+  }
+  66% {
+    font-family: 'Orbitron', sans-serif;
+    font-style: normal;
+  }
+  83% {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+}
+
+@keyframes gifKineticJitter {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) skewX(0deg) scaleX(1);
+  }
+  25% {
+    transform: translate3d(0, -0.5px, 0) skewX(-4deg) scaleX(1.03);
+  }
+  50% {
+    transform: translate3d(0, 0.5px, 0) skewX(3deg) scaleX(0.98);
+  }
+  75% {
+    transform: translate3d(0, -0.5px, 0) skewX(-2deg) scaleX(1.02);
+  }
+}
+
+.gif-shapeshift-word {
+  display: inline-block;
+  animation:
+    gifFontCycle var(--gif-cycle-duration, 1.6s) steps(1, end) infinite,
+    gifKineticJitter var(--gif-cycle-duration, 1.6s) steps(4, end) infinite;
+  will-change: transform;
+}
+
+.gif-chromatic-text {
+  text-shadow:
+    -1px 0 rgba(56, 189, 248, 0.5),
+    1px 0 rgba(244, 63, 94, 0.5);
+}
+
+.gif-ui-cascade .gif-morph-label {
+  animation: gifFontCycle var(--gif-cycle-duration, 2.2s) steps(1, end) infinite;
+}

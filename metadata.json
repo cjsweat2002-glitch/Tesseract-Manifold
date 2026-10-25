@@ -1,0 +1,6 @@
+{
+  "name": "Tesseract Manifold — 4D Sandbox & Entity Synthesizer",
+  "description": "Procedural 3D sandbox and multi-jointed entity generator with a 4D spatiotemporal behavior and active-ragdoll node system, supporting 1st-person and 3rd-person exploration across infinite manifold worlds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
