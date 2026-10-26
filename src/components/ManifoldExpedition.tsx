@@ -30,14 +30,20 @@ import {
 } from '../expedition/model';
 import { load } from '../expedition/save';
 import { MEMORIES, PLATFORMS, activeIn, distance } from '../expedition/world';
+import {
+  RESIDENTS,
+  STATIONS,
+  canDeliver,
+  converse,
+  dayLabel,
+  entityActive,
+  lifeTarget,
+  questText,
+  sheltered,
+  type ResidentId,
+} from '../expedition/life';
 import '../expedition.css';
 
-const formatTime = (seconds: number) =>
-  `${Math.floor(seconds / 60)
-    .toString()
-    .padStart(2, '0')}:${Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, '0')}`;
 function initial() {
   try {
     const result = load(window.localStorage);
@@ -103,7 +109,7 @@ export function ManifoldExpedition() {
           setWarning(
             ok
               ? ''
-              : 'Progress cannot be saved here. Keep this tab open to finish your expedition.',
+              : 'Progress cannot be saved here. Keep this tab open to retain your neighbourhood changes.',
           );
         },
         setError,
@@ -118,13 +124,13 @@ export function ManifoldExpedition() {
   }, []);
 
   const modal =
-    screen === 'pause' || screen === 'journal' || screen === 'complete';
+    screen === 'pause' || screen === 'journal' || screen === 'conversation';
   useEffect(() => {
     if (!modal) return;
     const first = dialog.current?.querySelector<HTMLButtonElement>('button');
     first?.focus();
     const trap = (e: KeyboardEvent) => {
-      if (e.code === 'Escape' && screen !== 'complete') {
+      if (e.code === 'Escape') {
         e.preventDefault();
         controller.current?.play();
       }
@@ -156,9 +162,8 @@ export function ManifoldExpedition() {
     controller.current?.settingsChanged();
   };
   const start = () => {
-    if (runtime.current.state.complete)
-      controller.current?.setScreen('complete');
-    else controller.current?.play();
+    runtime.current.state.life.talking = null;
+    controller.current?.play();
   };
   const restart = () => {
     runtime.current.state = createExpedition();
@@ -167,21 +172,35 @@ export function ManifoldExpedition() {
     controller.current?.persist();
     controller.current?.play();
   };
-  const target = MEMORIES[hud.collected.length] ?? {
-    x: 0,
-    y: 0,
-    z: 21,
-    name: 'The way home',
-    numeral: '◇',
-  };
-  const targetDistance = Math.round(distance(hud.position, target));
-  const bearing =
-    Math.atan2(target.x - hud.position.x, -(target.z - hud.position.z)) +
-    hud.yaw;
+  const target = lifeTarget(hud);
+  const targetDistance = target
+    ? Math.round(distance(hud.position, target))
+    : 0;
   const prompt = nearbyPrompt(hud);
   const compass = ['N', 'W', 'S', 'E'][
     ((Math.round(hud.yaw / (Math.PI / 2)) % 4) + 4) % 4
   ];
+  const neighbour = RESIDENTS.find(
+    (r) => r.id === runtime.current.state.life.talking,
+  );
+  const stage = neighbour ? hud.life.quests[neighbour.id] : 0;
+  const danger = hud.life.entities.some(
+    (e, i) =>
+      entityActive(hud, i) &&
+      !e.repelled &&
+      distance(hud.position, e.position) < 14,
+  );
+  const track = (id: ResidentId | null) => {
+    runtime.current.state.life.tracked = id;
+    setHud({ ...runtime.current.state });
+    controller.current?.persist();
+  };
+  const chat = (action: 'help' | 'chat') => {
+    if (!neighbour) return;
+    converse(runtime.current.state, neighbour.id, action);
+    setHud({ ...runtime.current.state });
+    controller.current?.persist();
+  };
 
   return (
     <main
@@ -198,7 +217,7 @@ export function ManifoldExpedition() {
         </div>
         <div className="header-right">
           <span className="edition">
-            EXPEDITION 001 <span>/</span> THE HOLLOW ARCHIVE
+            THE HOLLOW ARCHIVE <span>/</span> A LIVING NEIGHBOURHOOD
           </span>
           <button
             className="icon-button"
@@ -210,7 +229,7 @@ export function ManifoldExpedition() {
           {screen === 'play' && (
             <button
               className="icon-button"
-              aria-label="Pause expedition"
+              aria-label="Pause world"
               onClick={() => controller.current?.pause()}
             >
               <Pause size={17} />
@@ -218,42 +237,37 @@ export function ManifoldExpedition() {
           )}
         </div>
       </header>
-
       {screen === 'title' ? (
         <>
           <section className="title-content">
             <div className="eyebrow">
-              <span className="tiny-line" /> A DIMENSIONAL EXPEDITION
+              <span className="tiny-line" /> AN OPEN WORLD SANDBOX STUDY
             </div>
             <h1>
-              Some worlds
+              A quiet life.
               <br />
-              are waiting
+              An impossible
               <br />
-              to be <em>remembered.</em>
+              <em>neighbourhood.</em>
             </h1>
             <p className="title-description">
-              Enter a living ruin between dimensions.
+              Grow a garden. Know your neighbours. Explore the folds.
               <br />
-              Fold its geometry. Recover its memories.
+              When the Hollow comes, keep the hearth alight.
               <br />
-              Find your way home.
+              Your stories begin here. The world stays open.
             </p>
             <button
               className="primary-button begin-button"
               disabled={!ready || !!error}
               onClick={start}
             >
-              {loaded.state.complete
-                ? 'View expedition record'
-                : hasSave.current
-                  ? 'Continue expedition'
-                  : 'Enter the manifold'}
+              {hasSave.current ? 'Continue living' : 'Make yourself at home'}
               <ArrowRight size={19} />
             </button>
             <div className="title-meta">
-              <span>01 — THE HOLLOW ARCHIVE</span>
-              <span>~10 MIN · SOLO</span>
+              <span>THE HOLLOW ARCHIVE</span>
+              <span>SOLO · PLAY AT YOUR OWN PACE</span>
             </div>
             <button
               className="text-button title-guide"
@@ -263,18 +277,22 @@ export function ManifoldExpedition() {
               }}
               disabled={!ready}
             >
-              <BookOpen size={14} /> Field guide & settings{' '}
+              <BookOpen size={14} /> Neighbourhood & settings{' '}
               <ChevronRight size={13} />
             </button>
           </section>
           <div className="title-scene-label">
-            <span className="coordinate-label">W +0.000 / GENESIS BASIN</span>
-            <span className="scene-caption">A place outside the possible.</span>
+            <span className="coordinate-label">
+              GENESIS BASIN / HEARTH DISTRICT
+            </span>
+            <span className="scene-caption">
+              Some things here would rather you did not stay.
+            </span>
           </div>
           <footer className="title-footer">
             <span>
-              <i className="status-dot" /> THIRD EXPEDITION{' '}
-              <span className="muted">/ PLAYABLE STUDY</span>
+              <i className="status-dot" /> SANDBOX PROTOTYPE / THREE RESIDENT
+              STORIES
             </span>
             <span>
               HEADPHONES RECOMMENDED <AudioLines size={15} />
@@ -284,36 +302,48 @@ export function ManifoldExpedition() {
       ) : (
         <>
           <div className="compass">
-            <span aria-hidden="true">· · · ·</span>
+            <span>· · · ·</span>
             <b>{compass}</b>
-            <span aria-hidden="true">· · · ·</span>
+            <span>· · · ·</span>
           </div>
           <section className="objective-block">
-            <div className="eyebrow">
-              {hud.collected.length === 3
-                ? 'THE RETURN'
-                : `MEMORY ${String(hud.collected.length + 1).padStart(2, '0')} / 03`}
-            </div>
-            <h2>{objective(hud)}</h2>
+            <div className="eyebrow">{dayLabel(hud)}</div>
+            <h2>
+              {hud.life.tracked
+                ? `${RESIDENTS.find((r) => r.id === hud.life.tracked)!.name}’s story`
+                : 'Make a life here.'}
+            </h2>
             <p>
-              {hud.collected.length === 0
-                ? 'The west archive lies across an echo bridge.'
-                : hud.collected.length === 1
-                  ? 'Cross the atrium. The east archive exists in matter.'
-                  : hud.collected.length === 2
-                    ? 'Fold at the Stillpoint to reach the northern archive.'
-                    : 'Return south. Walk through the awakened gate.'}
+              {hud.life.tracked
+                ? objective(hud)
+                : 'Meet a neighbour, tend the garden, or wander into the ruins. Tab opens your map. Nothing needs doing in order.'}
             </p>
-            <div className="memory-progress">
-              {MEMORIES.map((m, i) => (
-                <span
-                  key={m.id}
-                  className={hud.collected.length > i ? 'recovered' : ''}
-                >
-                  {hud.collected.length > i ? <Check size={12} /> : m.numeral}
-                </span>
+            <div className="needs-strip">
+              {(
+                [
+                  ['Hunger', hud.life.hunger],
+                  ['Energy', hud.life.energy],
+                  ['Composure', hud.life.composure],
+                ] as const
+              ).map(([name, value]) => (
+                <label key={name}>
+                  <span>
+                    {name} <b>{Math.round(value)}</b>
+                  </span>
+                  <meter
+                    aria-label={name}
+                    value={value}
+                    min="0"
+                    max="100"
+                    low={25}
+                    optimum={100}
+                  />
+                </label>
               ))}
-              <small>{hud.collected.length} / 3 RECOVERED</small>
+            </div>
+            <div className="inventory-line">
+              {hud.life.herbs} herbs · {hud.life.meals} packed meals ·{' '}
+              {hud.collected.length} relics
             </div>
           </section>
           {screen === 'play' && (
@@ -321,27 +351,27 @@ export function ManifoldExpedition() {
               <div className="crosshair">
                 <Crosshair size={19} strokeWidth={1} />
               </div>
-              {marker.visible && (
+              {marker.visible && target && (
                 <div
                   className="world-marker"
                   style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
                 >
                   <Diamond size={15} />
                   <span>
-                    {target.numeral} · {targetDistance} m
+                    {target.name} · {targetDistance} m
                   </span>
                 </div>
               )}
-              <div className="target-bearing">
-                <MoveUpRight
-                  size={17}
-                  style={{
-                    transform: `rotate(${(bearing * 180) / Math.PI - 45}deg)`,
-                  }}
-                />
-                <span>
-                  {target.name} · {targetDistance} m
-                </span>
+              <div
+                className={`world-condition ${danger && !sheltered(hud, hud.position) ? 'danger' : ''}`}
+              >
+                {sheltered(hud, hud.position)
+                  ? '◌ Within ward light'
+                  : danger
+                    ? 'An entity is near · G repel / R retreat'
+                    : hud.phase === 'echo'
+                      ? 'Echo · The Uninvited walks this fold'
+                      : 'Matter · Watch the light after dusk'}
               </div>
               <div className="interaction-prompt">{prompt}</div>
               <div className="transmission" role="status">
@@ -356,104 +386,96 @@ export function ManifoldExpedition() {
               </span>
               <div>
                 <span className="eyebrow">CURRENT FOLD</span>
-                <strong>
-                  {hud.phase === 'matter' ? 'Matter' : 'Echo'}{' '}
-                  <small>
-                    W {hud.phase === 'matter' ? '+0.000' : '+1.000'}
-                  </small>
-                </strong>
+                <strong>{hud.phase === 'matter' ? 'Matter' : 'Echo'}</strong>
               </div>
               <kbd>Q</kbd>
             </div>
             <div className="control-strip">
               <span>
-                <kbd>W A S D</kbd> Move
+                <kbd>WASD</kbd> Move
               </span>
               <span>
-                <kbd>SPACE</kbd> Jump
+                <kbd>E</kbd> Talk / tend
               </span>
               <span>
-                <kbd>E</kbd> Recover
-              </span>
-              <span className={hud.collected.length ? '' : 'muted'}>
                 <kbd>F</kbd> Tether
               </span>
+              <span>
+                <kbd>G</kbd> Repel
+              </span>
               <button onClick={() => controller.current?.setScreen('journal')}>
-                <kbd>TAB</kbd> Field guide
+                <kbd>TAB</kbd> Neighbourhood
               </button>
             </div>
             <div className="save-status">
               <i className="status-dot" />
-              {saved ? 'MEMORY SAVED' : 'LOCAL EXPEDITION'}
+              {saved ? 'WORLD SAVED' : 'LOCAL WORLD'}
             </div>
           </footer>
         </>
       )}
-
       {modal && (
         <div className="modal-backdrop">
           <div
-            className={`expedition-dialog ${screen === 'complete' ? 'completion-dialog' : ''}`}
+            className={`expedition-dialog ${screen === 'conversation' ? 'conversation-dialog' : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="dialog-title"
             ref={dialog}
           >
-            {screen === 'complete' ? (
+            {screen === 'conversation' && neighbour ? (
               <>
-                <div className="completion-sigil">⟐</div>
-                <div className="eyebrow">EXPEDITION COMPLETE</div>
-                <h2 id="dialog-title">
-                  Nothing remembered
-                  <br />
-                  is ever truly <em>lost.</em>
-                </h2>
-                <p>
-                  You crossed the manifold and brought three voices home.
-                  <br />
-                  The Hollow Archive has a witness.
-                </p>
-                <div className="completion-stats">
-                  <div>
-                    <b>{formatTime(hud.elapsed)}</b>
-                    <span>TIME IN THE FOLD</span>
-                  </div>
-                  <div>
-                    <b>{hud.folds}</b>
-                    <span>DIMENSIONAL FOLDS</span>
-                  </div>
-                  <div>
-                    <b>{hud.recoveries}</b>
-                    <span>RECALLS</span>
-                  </div>
+                <div className="eyebrow">
+                  {neighbour.role} · Friendship {hud.life.bonds[neighbour.id]} /
+                  100
                 </div>
-                <button
-                  className="primary-button"
-                  onClick={() => setConfirmReset(true)}
-                >
-                  Begin another expedition <ArrowRight size={17} />
-                </button>
-                <button
-                  className="text-button"
-                  onClick={() => controller.current?.setScreen('title')}
-                >
-                  Return to title
-                </button>
+                <h2 id="dialog-title">{neighbour.name}</h2>
+                <p className="resident-quote">“{neighbour.greeting}”</p>
+                <p>{questText(hud, neighbour.id)}</p>
+                <div className="conversation-reward">
+                  {
+                    {
+                      mira: 'Help her restore the garden to grow herbs faster.',
+                      ivo: 'Help him build a permanent ward against the entities.',
+                      sen: 'Help them light a mural for the people of the Archive.',
+                    }[neighbour.id]
+                  }
+                </div>
+                <div className="conversation-actions">
+                  {stage < 3 && (
+                    <button
+                      className="primary-button"
+                      disabled={stage > 0 && !canDeliver(hud, neighbour.id)}
+                      onClick={() => chat('help')}
+                    >
+                      {stage === 0
+                        ? 'I’ll help'
+                        : canDeliver(hud, neighbour.id)
+                          ? 'Share what I found'
+                          : 'Still looking'}
+                    </button>
+                  )}
+                  <button className="text-button" onClick={() => chat('chat')}>
+                    Spend a moment together
+                  </button>
+                  <button className="text-button" onClick={start}>
+                    See you around <ArrowRight size={16} />
+                  </button>
+                </div>
+                <p className="dialog-notice" role="status">
+                  {hud.messageTime > 0 && hud.message}
+                </p>
               </>
             ) : (
               <>
                 <div className="dialog-top">
                   <div>
                     <div className="eyebrow">THE HOLLOW ARCHIVE</div>
-                    <h2 id="dialog-title">
-                      {screen === 'journal'
-                        ? 'Your field guide'
-                        : 'Between moments'}
-                    </h2>
+                    <h2 id="dialog-title">Your neighbourhood</h2>
                   </div>
                   <button
                     className="icon-button"
-                    aria-label="Resume expedition"
+                    aria-label="Resume living"
                     onClick={start}
                   >
                     <X size={20} />
@@ -464,7 +486,7 @@ export function ManifoldExpedition() {
                     className={panel === 'guide' ? 'selected' : ''}
                     onClick={() => setPanel('guide')}
                   >
-                    <BookOpen size={15} /> Expedition
+                    <BookOpen size={15} /> People & places
                   </button>
                   <button
                     className={panel === 'settings' ? 'selected' : ''}
@@ -475,126 +497,174 @@ export function ManifoldExpedition() {
                   <span>WORLD PAUSED</span>
                 </div>
                 {panel === 'guide' ? (
-                  <div className="guide-grid">
-                    <section>
-                      <div className="eyebrow">READING THE MANIFOLD</div>
-                      <h3>Two folds. One place.</h3>
-                      <p>
-                        <b>Q folds reality.</b> Cyan bridges exist in Echo;
-                        amber bridges exist in Matter. Dotted paths are absent.
-                        Seals obey the same rule. Shift on an island, or the
-                        path beneath you may vanish.
-                      </p>
-                      <p>
-                        Recover memories in order with <b>E</b>. The first
-                        restores your <b>F void tether</b>: aim toward a
-                        floating ring within 18 m to cross a clear gap.
-                      </p>
-                      <div className="guide-controls">
-                        <span>
-                          <kbd>W A S D</kbd> Move · <kbd>SHIFT</kbd> Run
-                        </span>
-                        <span>
-                          <kbd>SPACE</kbd> Jump · <kbd>R</kbd> Recall safely
-                        </span>
-                        <span>Mouse / drag / arrow keys to look</span>
-                        <span>
-                          <kbd>ESC</kbd> Pause · <kbd>TAB</kbd> Field guide
-                        </span>
-                      </div>
-                      <p className="guide-note">
-                        Falling recalls you to your last memory. Progress is
-                        saved locally at each recovery. Reloading resumes at a
-                        safe anchor.
-                      </p>
-                    </section>
-                    <section>
-                      <div className="map-heading">
-                        <span className="eyebrow">BASIN CARTOGRAPHY</span>
-                        <span>N ↑</span>
-                      </div>
-                      <svg
-                        className="basin-map"
-                        viewBox="-34 -44 68 75"
-                        role="img"
-                        aria-label="Basin map: arrival south, first memory west, second east, third north. Two northern bridges meet at the Stillpoint."
-                      >
-                        {PLATFORMS.map((p) => (
-                          <rect
-                            key={p.id}
-                            x={p.x - p.width / 2}
-                            y={p.z - p.depth / 2}
-                            width={p.width}
-                            height={p.depth}
-                            fill={
-                              p.phase
-                                ? p.phase === 'echo'
-                                  ? '#5da99c'
-                                  : '#ac8655'
-                                : '#263b3d'
-                            }
-                            fillOpacity={activeIn(p, hud.phase) ? 0.75 : 0.1}
-                            stroke={p.phase === 'echo' ? '#9ce3d1' : '#bba47b'}
-                            strokeWidth="0.25"
-                            strokeDasharray={
-                              activeIn(p, hud.phase) ? undefined : '1 1'
-                            }
-                          />
-                        ))}
-                        {MEMORIES.map((m, i) => (
-                          <text
-                            key={m.id}
-                            x={m.x}
-                            y={m.z + 1}
-                            textAnchor="middle"
-                            fill={
-                              i < hud.collected.length ? '#e2b474' : '#f2eee1'
-                            }
-                            fontSize="3.4"
-                          >
-                            {m.numeral}
-                          </text>
-                        ))}
-                        <circle
-                          cx={hud.position.x}
-                          cy={hud.position.z}
-                          r="1.3"
-                          fill="#fff"
-                        />
-                        <text x="6" y="23" fill="#d9c9a9" fontSize="2.5">
-                          HOME
-                        </text>
-                        <text x="5" y="-19" fill="#b4c4be" fontSize="2.3">
-                          STILLPOINT
-                        </text>
-                      </svg>
-                      <div className="map-legend">
-                        <span>● You</span>
-                        <span className="echo-text">— Echo</span>
-                        <span className="matter-text">— Matter</span>
-                      </div>
-                    </section>
-                    <section className="memory-journal">
-                      {MEMORIES.map((m, i) => (
-                        <article
-                          key={m.id}
-                          className={i < hud.collected.length ? 'unlocked' : ''}
+                  <div className="sandbox-guide">
+                    <div className="guide-grid">
+                      <section>
+                        <div className="eyebrow">
+                          ORDINARY DAYS / STRANGE NIGHTS
+                        </div>
+                        <h3>You decide what matters.</h3>
+                        <p>
+                          <b>E</b> talks, harvests, cooks, or rests. Herbs
+                          regrow. Meals restore hunger; rest restores energy.
+                          Friendship grows through visits and favours. Stories
+                          are optional and can overlap.
+                        </p>
+                        <p>
+                          <b>Q</b> folds bridges and seals. <b>F</b> tethers to
+                          a clear ring within 18 m. The Uninvited hunts in Echo;
+                          the Hollow hunts after dusk. <b>G</b> repels nearby
+                          entities for 8 seconds, costing 10 energy. Ward
+                          circles protect you and your neighbours.
+                        </p>
+                        <p>
+                          <b>R</b> returns home with your belongings. Low needs
+                          limit sprinting. Lost composure sends you home.{' '}
+                          <b>Space</b> jumps; mouse, drag, or arrows look; Shift
+                          runs.
+                        </p>
+                      </section>
+                      <section className="map-panel">
+                        <div className="map-heading">
+                          <span>HEARTH & OUTER RUINS</span>
+                          <span>N ↑</span>
+                        </div>
+                        <svg
+                          viewBox="-34 -44 68 74"
+                          className="basin-map"
+                          role="img"
+                          aria-label="Neighbourhood map with residents, facilities and folded ruins"
                         >
-                          <span>{m.numeral}</span>
-                          <div>
-                            <h4>
-                              {i < hud.collected.length ? m.title : m.name}
-                            </h4>
-                            <p>
-                              {i < hud.collected.length
-                                ? m.text
-                                : 'A voice waiting to be recovered.'}
-                            </p>
+                          {PLATFORMS.map((p) => (
+                            <rect
+                              key={p.id}
+                              x={p.x - p.width / 2}
+                              y={p.z - p.depth / 2}
+                              width={p.width}
+                              height={p.depth}
+                              fill={
+                                p.phase
+                                  ? activeIn(p, hud.phase)
+                                    ? p.phase === 'echo'
+                                      ? '#407f7c'
+                                      : '#9c7748'
+                                    : 'none'
+                                  : '#30484c'
+                              }
+                              stroke={
+                                p.phase === 'echo' ? '#8ed9cc' : '#bda986'
+                              }
+                              strokeWidth="0.3"
+                              strokeDasharray={
+                                activeIn(p, hud.phase) ? undefined : '1 1'
+                              }
+                            />
+                          ))}
+                          {MEMORIES.map((m) => (
+                            <text
+                              key={m.id}
+                              x={m.x}
+                              y={m.z}
+                              fill={
+                                hud.collected.includes(m.id)
+                                  ? '#dfbb83'
+                                  : '#eeeadd'
+                              }
+                              fontSize="3"
+                              textAnchor="middle"
+                            >
+                              {m.numeral}
+                            </text>
+                          ))}
+                          {STATIONS.map((p, i) => (
+                            <text
+                              key={p.id}
+                              x={p.x}
+                              y={p.z}
+                              fill="#dfbb83"
+                              fontSize="3"
+                              textAnchor="middle"
+                            >
+                              {['G', 'K', 'H', 'W'][i]}
+                            </text>
+                          ))}
+                          {hud.life.residents.map((r) => (
+                            <circle
+                              key={r.id}
+                              cx={r.position.x}
+                              cy={r.position.z}
+                              r="0.9"
+                              fill="#9bdecf"
+                            />
+                          ))}
+                          <circle
+                            data-player="true"
+                            cx={hud.position.x}
+                            cy={hud.position.z}
+                            r="1"
+                            fill="#fff"
+                          />
+                        </svg>
+                        <div className="map-legend">
+                          <span>G garden · K kitchen · H hearth · W ward</span>
+                        </div>
+                        <div className="map-legend">
+                          <span>● You (white) / neighbours (mint)</span>
+                          <span>I coil · II seed · III record</span>
+                        </div>
+                      </section>
+                    </div>
+                    <div className="resident-cards">
+                      {RESIDENTS.map((r) => (
+                        <article key={r.id}>
+                          <div className="eyebrow">
+                            {r.role} · Bond {hud.life.bonds[r.id]}
                           </div>
-                          {i < hud.collected.length && <Check size={16} />}
+                          <h3>
+                            {r.name}
+                            <small>
+                              {
+                                hud.life.residents.find((n) => n.id === r.id)!
+                                  .activity
+                              }
+                            </small>
+                          </h3>
+                          <p>{questText(hud, r.id)}</p>
+                          <div className="resident-stage">
+                            {
+                              [
+                                'Meet in the world',
+                                'First favour',
+                                'A growing friendship',
+                                'Story complete · life continues',
+                              ][hud.life.quests[r.id]]
+                            }
+                          </div>
+                          <button
+                            className="text-button"
+                            onClick={() =>
+                              track(hud.life.tracked === r.id ? null : r.id)
+                            }
+                          >
+                            {hud.life.tracked === r.id
+                              ? 'Unpin story'
+                              : `Pin ${r.name}’s story`}
+                          </button>
                         </article>
                       ))}
-                    </section>
+                    </div>
+                    {hud.collected.length > 0 && (
+                      <div className="archive-notes">
+                        <h3>Found in the folds</h3>
+                        {MEMORIES.filter((m) =>
+                          hud.collected.includes(m.id),
+                        ).map((m) => (
+                          <p key={m.id}>
+                            <b>{m.name}.</b> {m.text}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="settings-panel">
@@ -672,22 +742,22 @@ export function ManifoldExpedition() {
                     className="text-button"
                     onClick={() => setConfirmReset(true)}
                   >
-                    <RotateCcw size={14} /> New expedition
+                    <RotateCcw size={14} /> New neighbourhood
                   </button>
                   <button className="primary-button" onClick={start}>
-                    Resume expedition <ArrowRight size={17} />
+                    Resume living <ArrowRight size={17} />
                   </button>
                 </div>
               </>
             )}
             {confirmReset && (
               <div className="reset-confirm">
-                <p>Begin again? This replaces your saved expedition.</p>
+                <p>Begin again? This replaces your saved neighbourhood.</p>
                 <button
                   className="text-button"
                   onClick={() => setConfirmReset(false)}
                 >
-                  Keep my expedition
+                  Keep my neighbourhood
                 </button>
                 <button className="primary-button" onClick={restart}>
                   Start fresh

@@ -32,15 +32,17 @@ export class ExpeditionAudio {
         0.08,
       );
   }
-  cue(kind: 'fold' | 'memory' | 'tether' | 'return') {
+  cue(kind: 'fold' | 'memory' | 'tether' | 'danger') {
     const ctx = this.context;
     if (!ctx || !this.master || ctx.state !== 'running') return;
     const notes =
-      kind === 'memory' || kind === 'return'
+      kind === 'memory'
         ? [220, 330, 440, 554.37]
-        : kind === 'fold'
-          ? [110, 164.81]
-          : [330];
+        : kind === 'danger'
+          ? [65.4, 69.3]
+          : kind === 'fold'
+            ? [110, 164.81]
+            : [330];
     notes.forEach((frequency, i) => {
       const oscillator = ctx.createOscillator(),
         gain = ctx.createGain();

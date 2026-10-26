@@ -6,6 +6,7 @@ import {
   type Settings,
 } from './model';
 import { MEMORIES } from './world';
+import { RESIDENTS, type ResidentId } from './life';
 export const SAVE_KEY = 'tesseract.expedition.v1';
 export type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 export type Saved = {
@@ -28,15 +29,14 @@ export function load(storage: StorageLike): Saved {
     if (!raw) return fallback;
     const data = JSON.parse(raw);
     if (
-      data.version !== 1 ||
+      ![1, 2].includes(data.version) ||
       !Array.isArray(data.collected) ||
       data.collected.length > 3 ||
-      !data.collected.every(
-        (id: unknown, i: number) => id === MEMORIES[i].id,
+      !data.collected.every((id: unknown) =>
+        MEMORIES.some((m) => m.id === id),
       ) ||
       !['matter', 'echo'].includes(data.phase) ||
-      typeof data.complete !== 'boolean' ||
-      (data.complete && data.collected.length !== 3) ||
+      new Set(data.collected).size !== data.collected.length ||
       !finite(data.elapsed, 1e8) ||
       !finite(data.recoveries, 1e7) ||
       !finite(data.folds, 1e7)
@@ -46,16 +46,80 @@ export function load(storage: StorageLike): Saved {
     Object.assign(state, {
       collected: [...data.collected],
       phase: data.phase,
-      complete: data.complete,
       elapsed: data.elapsed,
       recoveries: data.recoveries,
       folds: data.folds,
     });
     // Resume on an authored safe checkpoint, never in a missing bridge or a solid seal.
     state.position = checkpoint(state);
-    state.phase = MEMORIES[state.collected.length - 1]?.phase ?? 'matter';
-    if (state.complete) state.position = { x: 0, y: 0, z: 22 };
-    state.message = 'Memory restored. Continue from your last safe anchor.';
+    state.phase = 'matter';
+    if (data.version === 2) {
+      const l = data.life;
+      if (
+        !l ||
+        !finite(l.clock, 1e8) ||
+        !['hunger', 'energy', 'composure'].every((k) => finite(l[k], 100)) ||
+        !['herbs', 'meals'].every(
+          (k) => Number.isInteger(l[k]) && finite(l[k], 99),
+        ) ||
+        !['gardenReady', 'wardUntil'].every((k) => finite(l[k], 1e8)) ||
+        !RESIDENTS.every(
+          ({ id }) =>
+            Number.isInteger(l.quests?.[id]) &&
+            finite(l.quests[id], 3) &&
+            finite(l.bonds?.[id], 100) &&
+            Number.isInteger(l.chattedDay?.[id]) &&
+            l.chattedDay[id] >= -1 &&
+            l.chattedDay[id] <= Math.floor(l.clock / 300),
+        ) ||
+        !(l.tracked === null || RESIDENTS.some((r) => r.id === l.tracked))
+      )
+        throw new Error('Invalid neighbourhood');
+      // Impossible quest rewards must not activate permanent world upgrades.
+      if (
+        (l.quests.mira === 3 && !state.collected.includes('becoming')) ||
+        (l.quests.ivo >= 2 && !state.collected.includes('remembering')) ||
+        (l.quests.sen >= 2 && !state.collected.includes('unwritten'))
+      )
+        throw new Error('Invalid quest');
+      for (const k of [
+        'clock',
+        'hunger',
+        'energy',
+        'composure',
+        'herbs',
+        'meals',
+        'gardenReady',
+        'wardUntil',
+      ] as const)
+        state.life[k] = l[k];
+      for (const { id } of RESIDENTS) {
+        state.life.quests[id] = l.quests[id];
+        state.life.bonds[id] = l.bonds[id];
+        state.life.chattedDay[id] = l.chattedDay[id];
+      }
+      state.life.tracked = l.tracked as ResidentId | null;
+      // Residents and threats restart at safe authored places; needs persist.
+      if (
+        !Array.isArray(l.residents) ||
+        l.residents.length !== RESIDENTS.length ||
+        !l.residents.every(
+          (r: any, i: number) =>
+            r.id === RESIDENTS[i].id &&
+            finite(r.hunger, 100) &&
+            finite(r.comfort, 100),
+        )
+      )
+        throw new Error('Invalid residents');
+      state.life.residents.forEach((r, i) => {
+        r.hunger = l.residents[i].hunger;
+        r.comfort = l.residents[i].comfort;
+      });
+    }
+    state.message =
+      data.version === 1
+        ? 'Your archive memories are safe. Welcome to a living neighbourhood — the world stays open.'
+        : 'Welcome home. Your neighbourhood and friendships are restored.';
     const settings = { ...DEFAULT_SETTINGS };
     const v = data.settings;
     if (v && typeof v === 'object') {
@@ -71,7 +135,8 @@ export function load(storage: StorageLike): Saved {
   } catch {
     return {
       ...fallback,
-      warning: 'Your save could not be read. A fresh expedition is available.',
+      warning:
+        'Your save could not be read. A fresh neighbourhood is available.',
     };
   }
 }
@@ -84,10 +149,28 @@ export function save(
     storage.setItem(
       SAVE_KEY,
       JSON.stringify({
-        version: 1,
+        version: 2,
         collected: state.collected,
         phase: state.phase,
-        complete: state.complete,
+        life: {
+          clock: state.life.clock,
+          hunger: state.life.hunger,
+          energy: state.life.energy,
+          composure: state.life.composure,
+          herbs: state.life.herbs,
+          meals: state.life.meals,
+          gardenReady: state.life.gardenReady,
+          wardUntil: state.life.wardUntil,
+          quests: state.life.quests,
+          bonds: state.life.bonds,
+          chattedDay: state.life.chattedDay,
+          tracked: state.life.tracked,
+          residents: state.life.residents.map(({ id, hunger, comfort }) => ({
+            id,
+            hunger,
+            comfort,
+          })),
+        },
         elapsed: state.elapsed,
         recoveries: state.recoveries,
         folds: state.folds,

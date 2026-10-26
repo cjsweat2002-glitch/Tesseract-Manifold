@@ -1,4 +1,12 @@
 import {
+  createLife,
+  useLife,
+  nearbyLife,
+  stepLife,
+  questText,
+  type Life,
+} from './life';
+import {
   ANCHORS,
   MEMORIES,
   START,
@@ -26,7 +34,7 @@ export type Expedition = {
   elapsed: number;
   recoveries: number;
   folds: number;
-  complete: boolean;
+  life: Life;
   message: string;
   messageTime: number;
   foldCooldown: number;
@@ -49,8 +57,9 @@ export const createExpedition = (): Expedition => ({
   elapsed: 0,
   recoveries: 0,
   folds: 0,
-  complete: false,
-  message: 'The path is missing. Press Q to reveal its echo.',
+  life: createLife(),
+  message:
+    'Welcome home. Explore freely. E talks or tends; Tab shows neighbours. G flares your lantern.',
   messageTime: 8,
   foldCooldown: 0,
   tether: null,
@@ -60,20 +69,21 @@ export function announce(s: Expedition, text: string) {
   s.messageTime = 6;
 }
 export function checkpoint(s: Expedition): Point {
-  const memory = MEMORIES[s.collected.length - 1];
-  return memory ? { x: memory.x, y: 0, z: memory.z + 1.8 } : { ...START };
+  return { ...START };
 }
 export function recover(s: Expedition) {
   s.position = checkpoint(s);
   s.velocityY = 0;
   s.grounded = true;
   s.tether = null;
-  s.phase = MEMORIES[s.collected.length - 1]?.phase ?? 'matter';
+  s.phase = 'matter';
+  s.life.composure = 100;
+  s.life.talking = null;
   s.recoveries++;
-  announce(s, 'Recalled to your last memory. The archive is safe.');
+  announce(s, 'Back at your hearth. Your belongings and friendships are safe.');
 }
 export function fold(s: Expedition): boolean {
-  if (s.complete || s.tether || s.foldCooldown > 0) return false;
+  if (s.tether || s.foldCooldown > 0) return false;
   const next = s.phase === 'matter' ? 'echo' : 'matter';
   if (blocked(s.position, next)) {
     announce(s, 'Stone occupies this fold. Step clear of the seal.');
@@ -91,16 +101,12 @@ export function fold(s: Expedition): boolean {
   return true;
 }
 export function interact(s: Expedition): boolean {
-  if (s.complete || !s.grounded) return false;
-  const m = MEMORIES[s.collected.length];
-  if (!m) {
-    announce(s, 'Carry the archive through the arrival gate to the south.');
-    return false;
-  }
-  if (distance(s.position, m) > 3) {
-    announce(s, `Follow the marker to ${m.name}.`);
-    return false;
-  }
+  if (!s.grounded) return false;
+  if (useLife(s)) return true;
+  const m = MEMORIES.find(
+    (m) => !s.collected.includes(m.id) && distance(s.position, m) <= 3,
+  );
+  if (!m) return false;
   if (s.phase !== m.phase) {
     announce(s, `This memory exists in ${m.phase}. Press Q to fold.`);
     return false;
@@ -110,7 +116,7 @@ export function interact(s: Expedition): boolean {
   return true;
 }
 export function tetherTarget(s: Expedition): Point | undefined {
-  if (!s.collected.length || s.tether || s.complete) return;
+  if (s.tether) return;
   const forward = { x: -Math.sin(s.yaw), z: -Math.cos(s.yaw) };
   return ANCHORS.filter((a) => {
     const d = distance(a, s.position);
@@ -136,12 +142,7 @@ export function tetherTarget(s: Expedition): Point | undefined {
 export function grapple(s: Expedition): boolean {
   const to = tetherTarget(s);
   if (!to) {
-    announce(
-      s,
-      s.collected.length
-        ? 'Aim toward a clear tether ring within 18 metres.'
-        : 'Recover the first memory to restore your void tether.',
-    );
+    announce(s, 'Aim toward a clear tether ring within 18 metres.');
     return false;
   }
   s.tether = { from: { ...s.position }, to: { ...to }, progress: 0 };
@@ -156,13 +157,20 @@ export type Input = {
   jump: boolean;
 };
 export function step(s: Expedition, input: Input, delta: number) {
-  if (s.complete) return;
   // Bound catch-up and substep collision so low frame rates cannot tunnel through seals.
   let remaining = Math.max(0, Math.min(delta, 0.1));
   while (remaining > 0.000001) {
     const dt = Math.min(remaining, 1 / 120);
     remaining -= dt;
     s.elapsed += dt;
+    stepLife(s, dt, input.sprint && !!(input.forward || input.strafe));
+    if (s.life.composure <= 0) {
+      recover(s);
+      announce(
+        s,
+        'The Hollow drove you home. Rest, use G to repel it, or stay within ward light.',
+      );
+    }
     s.messageTime = Math.max(0, s.messageTime - dt);
     s.foldCooldown = Math.max(0, s.foldCooldown - dt);
     const previous = { ...s.position };
@@ -183,7 +191,8 @@ export function step(s: Expedition, input: Input, delta: number) {
       }
     } else {
       const length = Math.max(1, Math.hypot(input.forward, input.strafe));
-      const speed = input.sprint ? 8 : 5;
+      const speed =
+        input.sprint && s.life.energy > 10 && s.life.hunger > 10 ? 8 : 5;
       const dx =
         ((input.strafe * Math.cos(s.yaw) - input.forward * Math.sin(s.yaw)) /
           length) *
@@ -222,33 +231,23 @@ export function step(s: Expedition, input: Input, delta: number) {
       }
       if (s.position.y < -9) recover(s);
     }
-    if (
-      s.collected.length === 3 &&
-      s.grounded &&
-      Math.abs(s.position.x) < 2.3 &&
-      previous.z < 21 &&
-      s.position.z >= 21
-    ) {
-      s.complete = true;
-      announce(s, 'The archive has a witness. You brought them home.');
-    }
   }
 }
 export function objective(s: Expedition) {
-  return s.collected.length < 3
-    ? `Recover ${MEMORIES[s.collected.length].name}`
-    : 'Return through the arrival gate';
+  return s.life.tracked
+    ? questText(s, s.life.tracked)
+    : 'Make a life in the manifold';
 }
 export function nearbyPrompt(s: Expedition) {
-  const m = MEMORIES[s.collected.length];
-  if (m && distance(s.position, m) < 3.5)
+  const near = nearbyLife(s);
+  if (near) return `E · ${near.label}`;
+  const m = MEMORIES.find(
+    (m) => !s.collected.includes(m.id) && distance(s.position, m) < 3.5,
+  );
+  if (m)
     return s.phase === m.phase
-      ? `E · Recover ${m.name}`
-      : `Q · Reveal this memory in ${m.phase}`;
+      ? `E · Gather ${m.name}`
+      : `Q · Reveal ${m.name} in ${m.phase}`;
   if (tetherTarget(s)) return 'F · Tether across';
-  if (!s.collected.length && s.position.z > 10)
-    return s.phase === 'matter'
-      ? 'Q · Fold reality to reveal the bridge'
-      : 'WASD · Cross the echo bridge, then follow the west marker';
-  return '';
+  return 'E · Talk / tend     G · Lantern flare     Tab · Neighbourhood';
 }

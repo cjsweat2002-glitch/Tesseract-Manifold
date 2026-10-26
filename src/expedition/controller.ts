@@ -1,3 +1,4 @@
+import { pulse } from './life';
 import { ExpeditionAudio } from './audio';
 import { ExpeditionScene } from './scene';
 import {
@@ -11,7 +12,7 @@ import {
   type Settings,
 } from './model';
 import { save } from './save';
-export type Screen = 'title' | 'play' | 'pause' | 'journal' | 'complete';
+export type Screen = 'title' | 'play' | 'pause' | 'journal' | 'conversation';
 export type Marker = { x: number; y: number; visible: boolean };
 export type Runtime = { state: Expedition; settings: Settings; screen: Screen };
 export class ExpeditionController {
@@ -23,6 +24,7 @@ export class ExpeditionController {
   private lastHud = 0;
   private lastSave = 0;
   private lastDraw = 0;
+  private lastDanger = 0;
   private renderKey = '';
   private jump = false;
   private dragging = false;
@@ -98,7 +100,7 @@ export class ExpeditionController {
         e.preventDefault();
         this.pause();
         onError(
-          'The graphics context was lost. Reload to resume from your saved memory.',
+          'The graphics context was lost. Reload to resume from your saved hearth.',
         );
       },
       options,
@@ -127,7 +129,7 @@ export class ExpeditionController {
     if (screen !== 'play') {
       if (document.pointerLockElement === this.scene.renderer.domElement)
         document.exitPointerLock();
-      if (screen !== 'complete') this.audio.pause();
+      this.audio.pause();
     }
     this.onScreen(screen);
   }
@@ -170,6 +172,7 @@ export class ExpeditionController {
       'KeyQ',
       'KeyE',
       'KeyF',
+      'KeyG',
       'KeyR',
       'Space',
       'Tab',
@@ -203,6 +206,11 @@ export class ExpeditionController {
           this.audio.cue('memory');
           this.persist();
         }
+        if (s.life.talking) this.setScreen('conversation');
+        break;
+      case 'KeyG':
+        if (pulse(s)) this.audio.cue('fold');
+        this.persist();
         break;
       case 'KeyF':
         if (grapple(s)) this.audio.cue('tether');
@@ -235,6 +243,7 @@ export class ExpeditionController {
         ),
       );
       const recoveries = s.recoveries;
+      const composure = s.life.composure;
       step(
         s,
         {
@@ -247,12 +256,11 @@ export class ExpeditionController {
         dt,
       );
       this.jump = false;
-      if (s.recoveries !== recoveries) this.persist();
-      if (s.complete) {
-        this.audio.cue('return');
-        this.setScreen('complete');
-        this.persist();
+      if (s.life.composure < composure && time - this.lastDanger > 1500) {
+        this.audio.cue('danger');
+        this.lastDanger = time;
       }
+      if (s.recoveries !== recoveries) this.persist();
       if (time - this.lastSave > 5000) {
         this.lastSave = time;
         this.persist();

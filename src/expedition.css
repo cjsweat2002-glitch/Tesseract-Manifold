@@ -931,3 +931,179 @@
     margin-top: 7px;
   }
 }
+
+/* The neighbourhood keeps daily needs quiet and resident stories optional. */
+.needs-strip {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+.needs-strip label {
+  width: 86px;
+  font-size: 10px;
+  color: var(--soft);
+}
+.needs-strip label span {
+  display: flex;
+  justify-content: space-between;
+}
+.needs-strip meter {
+  width: 100%;
+  height: 7px;
+  margin-top: 4px;
+}
+.inventory-line {
+  margin-top: 12px;
+  color: var(--gold);
+  font-size: 11px;
+}
+.world-condition {
+  position: absolute;
+  top: 125px;
+  right: 42px;
+  padding: 10px 14px;
+  background: #0b2024e8;
+  color: var(--mint);
+  font-size: 11px;
+  border: 1px solid #9bdecf40;
+}
+.world-condition.danger {
+  color: #ffc1c6;
+  border-color: #e17d8b;
+  background: #301a25ed;
+}
+.resident-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 24px;
+}
+.resident-cards article {
+  border: 1px solid #adc8bb30;
+  padding: 16px;
+  background: #0a2026;
+}
+.resident-cards .eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+.resident-cards h3 {
+  margin: 12px 0;
+  font-size: 21px;
+}
+.resident-cards h3 small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  margin-top: 6px;
+  color: var(--mint);
+}
+.resident-cards p {
+  font-size: 12px;
+  line-height: 1.6;
+  min-height: 58px;
+  color: #c5d0ca;
+}
+.resident-stage {
+  color: var(--gold);
+  font-size: 10px;
+}
+.sandbox-guide .guide-grid {
+  padding-bottom: 0;
+}
+.sandbox-guide .map-legend {
+  font-size: 8px;
+  letter-spacing: 0.02em;
+}
+.sandbox-guide .basin-map {
+  max-height: 240px;
+}
+.archive-notes {
+  margin-top: 20px;
+  border-top: 1px solid #adc8bb30;
+}
+.archive-notes p {
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.conversation-dialog {
+  max-width: 650px;
+}
+.conversation-dialog h2 {
+  font-size: 42px;
+  margin: 20px 0;
+}
+.conversation-dialog p {
+  line-height: 1.8;
+  color: #d4ddd4;
+}
+.conversation-dialog .resident-quote {
+  font-size: 21px;
+  color: var(--cream);
+}
+.conversation-reward {
+  color: var(--mint);
+  font-size: 12px;
+}
+.conversation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-top: 24px;
+}
+.dialog-notice {
+  font-size: 12px;
+  border-top: 1px solid #adc8bb30;
+  padding-top: 14px;
+}
+.expedition button:disabled {
+  cursor: default;
+}
+@media (max-width: 1050px) {
+  .world-condition {
+    top: 95px;
+    right: 24px;
+    max-width: 270px;
+  }
+  .objective-block {
+    max-width: 270px;
+  }
+  .objective-block h2 {
+    font-size: 18px;
+  }
+  .resident-cards {
+    gap: 8px;
+  }
+  .resident-cards article {
+    padding: 12px;
+  }
+  .needs-strip {
+    gap: 8px;
+  }
+}
+@media (max-height: 700px) {
+  .objective-block {
+    top: 94px;
+  }
+  .objective-block p {
+    margin: 6px 0;
+  }
+  .needs-strip {
+    margin-top: 10px;
+  }
+  .title-content {
+    top: 20%;
+  }
+  .title-content h1 {
+    font-size: 42px;
+    margin: 16px 0;
+  }
+  .title-description {
+    margin-bottom: 16px;
+  }
+  .title-guide {
+    margin-top: 10px;
+  }
+}

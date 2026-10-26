@@ -1,4 +1,4 @@
-name: Verify expedition
+name: Verify neighbourhood
 on:
   pull_request:
   push:

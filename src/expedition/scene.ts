@@ -1,3 +1,5 @@
+import { NeighbourhoodScene } from './neighbourhoodScene';
+import { lifeTarget, isNight } from './life';
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -28,6 +30,7 @@ export class ExpeditionScene {
     mesh: THREE.Mesh;
     edges: THREE.LineSegments;
   }[] = [];
+  private neighbourhood: NeighbourhoodScene;
   private memories: THREE.Group[] = [];
   private anchors: THREE.Mesh[] = [];
   private tesseract: THREE.LineSegments;
@@ -337,7 +340,7 @@ export class ExpeditionScene {
     );
     this.gate.position.set(0, 3, 21);
     this.scene.add(this.gate);
-    const gateLabel = this.label('00  /  THE WAY HOME');
+    const gateLabel = this.label('THE HEARTH / ALWAYS HOME');
     gateLabel.position.set(0, 7.3, 21);
     this.scene.add(gateLabel);
     const dustPositions = new Float32Array(600 * 3);
@@ -390,6 +393,8 @@ export class ExpeditionScene {
     orbRing.position.copy(this.orb.position);
     orbRing.rotation.x = 1.1;
     this.hands.add(orbRing);
+    this.neighbourhood = new NeighbourhoodScene((text) => this.label(text));
+    this.scene.add(this.neighbourhood.root);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(mount);
     this.resize();
@@ -466,7 +471,7 @@ export class ExpeditionScene {
       this.camera.position.set(s.position.x, s.position.y + 1.7, s.position.z);
       this.camera.rotation.set(s.pitch, s.yaw, 0, 'YXZ');
     }
-    this.hands.visible = mode === 'game' && !s.complete;
+    this.hands.visible = mode === 'game';
     this.hands.position.y = -0.38 + Math.sin(motion * 1.8) * 0.007;
     this.orb.rotation.y = motion * 0.5;
     (this.orb.material as THREE.MeshBasicMaterial).color.setHex(
@@ -503,18 +508,18 @@ export class ExpeditionScene {
       crystal.rotation.y = motion * 0.65;
       crystal.position.y = 2.3 + Math.sin(motion * 1.5 + i) * 0.12;
       const mat = crystal.material as THREE.MeshStandardMaterial;
-      mat.color.setHex(i < s.collected.length ? GOLD : CYAN);
-      mat.emissive.setHex(i < s.collected.length ? GOLD : CYAN);
-      mat.emissiveIntensity = i === s.collected.length ? 1.4 : 0.4;
+      mat.color.setHex(s.collected.includes(MEMORIES[i].id) ? GOLD : CYAN);
+      mat.emissive.setHex(s.collected.includes(MEMORIES[i].id) ? GOLD : CYAN);
+      mat.emissiveIntensity = !s.collected.includes(MEMORIES[i].id) ? 1.4 : 0.4;
     });
     this.anchors.forEach((a) => {
-      a.visible = s.collected.length > 0;
+      a.visible = true;
       a.lookAt(this.camera.position);
     });
-    (this.gate.material as THREE.MeshBasicMaterial).opacity =
-      s.collected.length === 3 ? 0.45 + Math.sin(motion) * 0.08 : 0.04;
+    (this.gate.material as THREE.MeshBasicMaterial).opacity = 0.16;
+    this.neighbourhood.update(s, motion);
     this.dust.rotation.y = motion * 0.004;
-    const bg = s.phase === 'echo' ? 0x112b30 : 0x17232c;
+    const bg = isNight(s) ? 0x130f20 : s.phase === 'echo' ? 0x112b30 : 0x27363b;
     this.background.setHex(bg);
     (this.scene.fog as THREE.FogExp2).color.setHex(bg);
     if (settings.quality === 'high') this.composer.render();
@@ -522,7 +527,8 @@ export class ExpeditionScene {
     this.needsRender = false;
   }
   marker(s: Expedition) {
-    const target = MEMORIES[s.collected.length] ?? { x: 0, y: 0, z: 21 };
+    const target = lifeTarget(s);
+    if (!target) return { x: 0, y: 0, visible: false };
     const p = new THREE.Vector3(target.x, 4.5, target.z).project(this.camera);
     return {
       x: (p.x + 1) * 50,

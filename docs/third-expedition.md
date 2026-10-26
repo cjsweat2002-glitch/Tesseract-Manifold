@@ -1,4 +1,4 @@
-# Third expedition: design and review
+# Hollow Archive: sandbox design and review
 
 ## What was reviewed
 
@@ -10,24 +10,30 @@ Both were built, typechecked, opened in a browser and captured before implementa
 
 Reviewed source included the manifold generator, portal/maze engines, grapple controller, collision engine, carved material/hand system, 4D node system, soundscape, and the stored concept/implementation plan. These systems are deeply coupled; importing them wholesale would reintroduce the broad prototype's lifecycle and progression problems. The new scene recovers the design strengths through focused implementations with a small renderer-independent rules layer. The old sources remain available for later, tested migration.
 
-## Playable contract
+## Revised direction after Craig’s review
 
-**Enter → understand the fold → recover → master traversal → return.**
+Craig clarified that the game is an open world sandbox: missions belong to the world and Sim character questlines, while evil horror entities counter mundane life. The first Hollow Archive implementation incorrectly made the whole game a linear expedition. Its ordered memory objectives and terminal gate have been removed.
 
-The missing arrival bridge introduces Q. The west archive requires Echo and unlocks a void tether. The east archive requires Matter and reinforces the same rule through a seal. The northern route chains two folds with a permanent Stillpoint in between. The third archive wakes the arrival gate; an actual crossing back through that gate completes the expedition. A compass, target bearing, world marker, and pause-map support navigation without a feature dashboard.
+The original `multiversalEmergenceAndCultureEngine.ts` models autonomous denizens, hunger, comfort, kinship, communal meals, hostile raids and resident-authored questlines. `proceduralMazeDimensionEngine.ts` models stalking horror entities. These are the relevant conceptual precedents for this revision, alongside the original relic/void-tool aesthetic. They remain reference systems; their larger procedural city, sabotage and combat systems are not claimed as integrated.
 
-Every phase-sensitive slab is both rendered and collided from the same authored definition. Inactive bridges are dashed ghosts; active seals block the player. A fold cannot materialize a seal inside the player. Movement is normalized and substepped, including large frame deltas. Tethers need an unlocked tool, a target in the facing cone, range, and an unobstructed route. Falls and manual recalls preserve earned memories. Interaction rewards are ordered and idempotent.
+## Current playable contract
 
-The tesseract contains sixteen W-aware vertices and thirty-two edges, rotating in XW and YZ before perspective projection. A muted relic palette, suspended islands, structural ribs, an articulated geometric gauntlet, dust and restrained harmonic cues connect the mechanics to the original identity.
+**Live, explore, befriend, and protect — in the order you choose.**
 
-## Verification strategy
+A connected hearth neighbourhood adds houses, a garden, communal kitchen, resting place, ward and side promenades. The player starts with folding and tethering available. Three residents move between work, supper and shelter based on the clock, hunger and nearby danger. Player hunger/energy/composure make cooking, rest and safety meaningful without preventing free movement or forcing quest participation.
 
-The deterministic suite covers the complete physical route, phase support and seals, anti-embedding, low-framerate collision, movement normalization, jumping, falls, ordered interaction, tether occlusion, gate completion, and malformed/unavailable storage. Browser tests exercise real keyboard dispatch, the full return loop, pause/blur, settings, confirmation, reload and error notices. Title, gameplay, Echo and field-guide captures are inspected separately because a passing state-machine test cannot establish visual readability.
+Each resident offers two connected favours through an in-world conversation. Mira needs herbs, then an eastern seed memory; her garden regrows faster afterward. Ivo needs a western Echo coil, then herbs to build a permanent ward. Sen needs a northern record, then a shared meal to commemorate the neighbourhood with a mural. All three lines can overlap; relics can be collected beforehand and in any order. Acceptance and delivery occur beside the resident. Journal pinning is optional navigation, not remote quest completion. Repeated delivery cannot duplicate rewards; conversation rewards are limited to one per day.
 
-Checkpoints deliberately persist progression, time, folds, recalls and settings, but not an unsafe in-flight position. Mouse lock has drag and keyboard fallbacks. Blur, hidden tabs and pointer-lock loss pause and clear input. Renderer-owned geometries, materials, textures, render targets, animation callbacks, listeners and audio are released on teardown. Graphics context loss produces a recoverable reload message.
+The Uninvited is active in Echo. The Hollow stalks at night. Both pursue exposed residents or the player, frighten residents from their routines, and drain player composure at contact. Ward light excludes their attacks; a lantern flare buys time to retreat or fold away. Running out of composure recalls the player with progress intact. The hearth and homes are always safe. A temporary herb-fuelled ward protects the plaza; Ivo’s quest gives the same protection permanently and allows neighbours to keep their routines after dark. The clock continues cycling and the world never closes after a story reward or gate crossing.
 
-## Honest boundaries and follow-up
+Geometry, folded support, seals, tether occlusion, input cleanup and the true sixteen-vertex tesseract remain from the first implementation. Persistence is upgraded in place to version 2, retaining old relics/settings while opening finished expedition saves into the neighbourhood. Player resumes at home; resident needs persist, while actor positions and threat encounters restart safely. Menus pause the whole simulation.
 
-This is one authored, short expedition. It does not establish commercial parity. It has no combat, ecology, crafting economy, branching campaign, gamepad/touch controls, cloud saves or imported Blender assets. The archived prototype systems are not presented as playable features. No local Windows or Blender access was assumed.
+## Verification
 
-The procedural art is coherent but remains visibly geometric. The next useful work is external player observation, richer sound design, original authored art, additional puzzles that combine folds and tethering, and performance profiling across real integrated/discrete GPUs. Keyboard and menu accessibility are supported; the spatial WebGL gameplay is not a screen-reader-equivalent experience. Browser checks target Chromium; Safari/Firefox and device coverage remain follow-up work.
+Automated rules tests retain collision/traversal coverage and add independent quests, no repeated rewards, needs/chores, resident schedules, horror pursuit/repel/ward protection, persistent daily friendship limits, and legacy-save migration. Chromium flows exercise a full resident story using keyboard movement and UI, cooking and the next morning, night danger, pause/input clearing, tether traversal, and corrupt/unavailable saves. Visual review covers entry, neighbourhood guide, resident conversation, settlement gameplay and a night encounter. Screenshots are review artifacts, not committed assets.
+
+## Boundaries
+
+This is a small authored sandbox neighbourhood with three residents and two simple horror archetypes. It establishes the revised direction; it does not establish commercial parity, a full Sims-scale society, an endless generated world, freeform building, a complex economy, romance/families, combat, or a branching campaign. Character art and routines are deliberately simple. Friendships currently reward visits and favours; deeper personality and social simulation need further work.
+
+Existing limitations remain: desktop keyboard/mouse, local-only saves, no gamepad/mobile support, and Chromium-focused checks. Procedural art and sound need richer authorship and hardware profiling. The spatial WebGL game is not a screen-reader-equivalent experience. No local Windows or Blender access is assumed.
