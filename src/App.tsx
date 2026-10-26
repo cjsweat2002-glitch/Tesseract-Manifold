@@ -1,5 +1,5 @@
-import { PrimeGenesisBasin } from './components/PrimeGenesisBasin';
+import { ManifoldExpedition } from './components/ManifoldExpedition';
 
 export default function App() {
-  return <PrimeGenesisBasin />;
+  return <ManifoldExpedition />;
 }
