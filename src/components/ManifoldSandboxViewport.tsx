@@ -7657,7 +7657,7 @@ export const ManifoldSandboxViewport: React.FC<ManifoldSandboxViewportProps> = (
           dt,
           fpLeftHandRig: fpLeftHandRigRef.current,
           fpRightHandRig: fpRightHandRigRef.current,
-          activeWeaponMesh: fpSpringRigRef.current.fpEquippedMeshGroup,
+          activeWeaponMesh: fpSpringRigRef.current.activeWeaponMesh,
         });
         voidOpenBlendRef.current = Math.max(voidOpenBlendRef.current, 1.0);
       }

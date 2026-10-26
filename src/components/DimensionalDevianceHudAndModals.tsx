@@ -102,7 +102,7 @@ export const DimensionalDevianceHudAndModals: React.FC<
   inventory,
   onCraftRecipe,
   biodepthConfig = DEFAULT_BIODEPTH_UI_GRAPHICS_CONFIG,
-  portalTelemetry,
+  portalTelemetry = {} as PortalRoomRuntimeTelemetry,
   onOpenBiodepthCrucibleModal,
   onEnterOrExitPortalRoomNow,
   onSelectRoomModuleKind,
@@ -269,7 +269,7 @@ export const DimensionalDevianceHudAndModals: React.FC<
                     ).map((gm) => (
                       <button
                         key={gm.id}
-                        onClick={() => onChangePortalRoomGravityMode(gm.id)}
+                        onClick={() => onChangePortalRoomGravityMode?.(gm.id)}
                         className={`px-1.5 py-0.5 rounded cursor-pointer ${
                           (portalTelemetry.portalRoomGravityMode ??
                             'stabilized-1g') === gm.id
@@ -404,7 +404,7 @@ export const DimensionalDevianceHudAndModals: React.FC<
             title={`Grab/Interact [${formatKeyCodeLabel(kb.interactGrab)}]`}
           >
             {heldObjectName
-              ? `🪨 ${heldObjectName.split(' ')[0]}`
+              ? `🪨 ${(heldObjectName ?? 'object').split(' ')[0]}`
               : `Grab [${formatKeyCodeLabel(kb.interactGrab)}]`}
           </button>
 
